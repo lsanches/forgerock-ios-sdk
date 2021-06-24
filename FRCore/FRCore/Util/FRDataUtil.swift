@@ -28,6 +28,12 @@ extension Data {
         }
         return Data(hash)
     }
+    
+    public var int8Arr: Array<Int8> {
+        let uint8Arr = Array(self)
+        let int8Arr = uint8Arr.map { Int8(bitPattern: $0) }
+        return int8Arr
+    }
 }
 
 

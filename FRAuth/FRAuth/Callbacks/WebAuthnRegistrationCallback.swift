@@ -10,6 +10,7 @@
 
 
 import Foundation
+import AuthenticationServices
 
 /**
  WebAuthnRegistrationCallback is a representation of AM's WebAuthn Registration Node to generate WebAuthn attestation based on given credentials, and optionally set the WebAuthn outcome value in `Node`'s designated `HiddenValueCallback`
@@ -49,6 +50,9 @@ open class WebAuthnRegistrationCallback: WebAuthnCallback {
     /// Delegation to perform required user interaction while generating assertion
     public weak var delegate: PlatformAuthenticatorRegistrationDelegate?
     
+    var successCallback: StringCompletionCallback?
+    var errorCallback: ErrorCallback?
+    var node: Node?
     
     //  MARK: - Private properties
     
@@ -292,6 +296,15 @@ open class WebAuthnRegistrationCallback: WebAuthnCallback {
             FRLog.i("Performing WebAuthn registration for AM 7.0.0 or below", subModule: WebAuthn.module)
         }
         
+        //  TODO: Change this; only for iOS 15 testing. Better come up with transition process from internal WebAuthn operation to Apple
+        if #available(iOS 15.0, *) {
+            self.node = node
+            self.successCallback = onSuccess
+            self.errorCallback = onError
+            self.performAuthenticationServiceRegistration()
+            return
+        }
+        
         //  Platform Authenticator
         let platformAuthenticator = PlatformAuthenticator(registrationDelegate: self)
         //  For AM 7.0.0, origin only supports https scheme; to be updated for AM 7.1.0
@@ -373,6 +386,24 @@ open class WebAuthnRegistrationCallback: WebAuthnCallback {
             }
         }
     }
+    
+    @available(iOS 15.0, *)
+    func performAuthenticationServiceRegistration() {
+        guard let userId = self.userId.data(using: .utf8) else {
+            return
+        }
+        let challengeData = Data(self.challenge.utf8)
+        let platformProvider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: self.relyingPartyId)
+        let platformKeyRequest = platformProvider.createCredentialRegistrationRequest(challenge: challengeData, name: self.displayName, userID: userId)
+        platformKeyRequest.attestationPreference = self.attestationPreference.convertAS()
+        platformKeyRequest.userVerificationPreference = self.userVerification.convertAS()
+        platformKeyRequest.name = self.displayName
+        
+        let authController = ASAuthorizationController(authorizationRequests: [platformKeyRequest])
+        authController.delegate = self
+        authController.presentationContextProvider = self
+        authController.performRequests()
+    }
 }
 
 
@@ -399,5 +430,66 @@ extension WebAuthnRegistrationCallback: PlatformAuthenticatorRegistrationDelegat
             FRLog.e("Missing PlatformAuthenticatorRegistrationDelegate", subModule: WebAuthn.module)
             consentCallback(.reject)
         }
+    }
+}
+
+
+extension WebAuthnRegistrationCallback: ASAuthorizationControllerDelegate {
+    @available(iOS 13.0, *)
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        FRLog.e(error.localizedDescription)
+    }
+    
+    @available(iOS 13.0, *)
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        FRLog.w("\(authorization)")
+        if #available(iOS 15.0, *) {
+            if let credentials = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialRegistration {
+                
+                if let attestationObj = credentials.rawAttestationObject {
+                    do {
+                        let clientJSONStr = try ASWebAuthn.swapClientDataChallenge(clientData: credentials.rawClientDataJSON, rawChallenge: self.challenge)
+                        let attestationObjUInt8Arr = [UInt8](attestationObj as Data)
+                        let attestationInt8Arr = attestationObjUInt8Arr.map { Int8(bitPattern: $0) }
+                        let attObj = self.convertInt8ArrToStr(attestationInt8Arr)
+                        
+                        //  Analyze AttestationObject / AuthenticatorData object to extract credentials identifier
+                        let reader = CBORReader(bytes: attestationObjUInt8Arr)
+                        let attestation = reader.readStringKeyMap()
+                        if let authData = attestation?["authData"] as? [UInt8], let authDataObj = AuthenticatorData.fromBytes(authData), let credentialId = authDataObj.attestedCredentialData?.credentialId {
+                            let credentialsId = Base64.encodeBase64URL(credentialId)
+                            let result = "\(clientJSONStr)::\(attObj)::\(credentialsId)"
+                            
+                            if let node = self.node {
+                                FRLog.i("Found optional 'Node' instance, setting WebAuthn outcome to designated HiddenValueCallback", subModule: WebAuthn.module)
+                                self.setWebAuthnOutcome(node: node, outcome: result)
+                            }
+                            self.successCallback?(result)
+                        }
+                    }
+                    catch {
+                        FRLog.e(error.localizedDescription)
+                    }
+                }
+                
+            }
+        } else {
+            // Fallback on earlier versions
+        }
+    }
+}
+
+
+extension WebAuthnRegistrationCallback: ASAuthorizationControllerPresentationContextProviding {
+    @available(iOS 13.0, *)
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return ASPresentationAnchor()
+    }
+}
+
+
+extension Data {
+    var hexDescription: String {
+        return reduce("") {$0 + String(format: "%02x", $1)}
     }
 }

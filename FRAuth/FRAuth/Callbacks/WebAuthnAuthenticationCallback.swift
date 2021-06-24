@@ -10,6 +10,7 @@
 
 
 import Foundation
+import AuthenticationServices
 
 /**
  WebAuthnAuthenticationCallback is a representation of AM's WebAuthn Authentication Node to generate WebAuthn assertion based on given credentials, and optionally set the WebAuthn outcome value in `Node`'s designated `HiddenValueCallback`
@@ -33,6 +34,9 @@ open class WebAuthnAuthenticationCallback: WebAuthnCallback {
     /// Delegation to perform required user interaction while generating assertion
     public weak var delegate: PlatformAuthenticatorAuthenticationDelegate?
     
+    var successCallback: StringCompletionCallback?
+    var errorCallback: ErrorCallback?
+    var node: Node?
     
     //  MARK: - Private properties
     
@@ -180,6 +184,15 @@ open class WebAuthnAuthenticationCallback: WebAuthnCallback {
             FRLog.i("Performing WebAuthn authentication for AM 7.0.0 or below", subModule: WebAuthn.module)
         }
         
+        //  TODO: Change this; only for iOS 15 testing. Better come up with transition process from internal WebAuthn operation to Apple
+        if #available(iOS 15.0, *) {
+            self.node = node
+            self.successCallback = onSuccess
+            self.errorCallback = onError
+            self.performAuthenticationServiceAuthentication()
+            return
+        }
+        
         //  Platform Authenticator
         let platformAuthenticator = PlatformAuthenticator(authenticationDelegate: self)
         //  For AM 7.0.0, origin only supports https scheme; to be updated for AM 7.1.0
@@ -230,7 +243,7 @@ open class WebAuthnAuthenticationCallback: WebAuthnCallback {
             }
             
             //  Expected AM result for successful assertion
-            //  {clientDataJSON as String}::{Int8 array of authenticatorData}::{Int8 array of signature}::{assertion identifier}::{user handle}
+            //  {clientDataJSON as String}::{Int8 array of authenticatorData}::{Int8 array of signature}::{credentials identifier}::{user handle}
             
             //  If Node is given, set WebAuthn outcome to designated HiddenValueCallback
             if let node = node {
@@ -257,6 +270,24 @@ open class WebAuthnAuthenticationCallback: WebAuthnCallback {
             }
         }
     }
+    
+    @available(iOS 15.0, *)
+    func performAuthenticationServiceAuthentication() {
+        let challengeData = Data(self.challenge.utf8)
+        let platformProvider = ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: self.relyingPartyId)
+        let platformKeyRequest = platformProvider.createCredentialAssertionRequest(challenge: challengeData)
+        platformKeyRequest.userVerificationPreference = self.userVerification.convertAS()
+        var allowedCredentials: [ASAuthorizationPlatformPublicKeyCredentialDescriptor] = []
+        for credential in self.allowCredentials {
+            let credDescriptor = ASAuthorizationPlatformPublicKeyCredentialDescriptor(credentialID: Data(credential))
+            allowedCredentials.append(credDescriptor)
+        }
+        platformKeyRequest.allowedCredentials = allowedCredentials
+        let authController = ASAuthorizationController(authorizationRequests: [platformKeyRequest])
+        authController.delegate = self
+        authController.presentationContextProvider = self
+        authController.performRequests()
+    }
 }
 
 extension WebAuthnAuthenticationCallback: PlatformAuthenticatorAuthenticationDelegate {
@@ -268,5 +299,63 @@ extension WebAuthnAuthenticationCallback: PlatformAuthenticatorAuthenticationDel
         else {
             FRLog.e("Missing PlatformAuthenticatorAuthenticationDelegate", subModule: WebAuthn.module)
         }
+    }
+}
+
+
+extension WebAuthnAuthenticationCallback: ASAuthorizationControllerDelegate {
+    @available(iOS 13.0, *)
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        FRLog.e(error.localizedDescription)
+    }
+    
+    @available(iOS 13.0, *)
+    public func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        if #available(iOS 15.0, *) {
+            if let credentials = authorization.credential as? ASAuthorizationPlatformPublicKeyCredentialAssertion {
+                
+                do {
+                    
+                    //  TODO: Currently Apple's WebAuthn assertion does not work with AM; further investigation on how we can make this competible is required. At the moment, the biggest concern about generating assertion (WebAuthn authentication) is missing credentials information
+                    let clientDataJSONString = try ASWebAuthn.swapClientDataChallenge(clientData: credentials.rawClientDataJSON, rawChallenge: self.challenge)
+                    let authenticatorData = self.convertInt8ArrToStr(credentials.rawAuthenticatorData.int8Arr)
+                    let signatureData = self.convertInt8ArrToStr(credentials.signature.int8Arr)
+                    var result = "\(clientDataJSONString)::\(authenticatorData)::\(signatureData)"
+                    if self.allowCredentials.count == 1 {
+                        let credentialRawId = self.allowCredentials.first!
+                        let credentialRawIdStr = Base64.encodeBase64URL(credentialRawId)
+                        result = result + "::\(credentialRawIdStr)"
+                    }
+                    
+//                    let userIdData = String(data: credentials.userID, encoding: .utf8) ?? ""
+//                    let testUserId = Bytes.fromString("ios15test")
+//                    let encoded = Base64.encodeBase64(testUserId)
+//                    if let decoded = encoded.base64Decoded() {
+//                        result = result + "::\(decoded)"
+//                    }
+//                    result = result + "::\(userIdData)"
+                    
+                    if let node = self.node {
+                        FRLog.i("Found optional 'Node' instance, setting WebAuthn outcome to designated HiddenValueCallback", subModule: WebAuthn.module)
+                        self.setWebAuthnOutcome(node: node, outcome: result)
+                    }
+                    
+                    self.successCallback?(result)
+                }
+                catch {
+                    
+                }
+            }
+        } else {
+            // Fallback on earlier versions
+        }
+    }
+}
+
+
+extension WebAuthnAuthenticationCallback: ASAuthorizationControllerPresentationContextProviding {
+    @available(iOS 13.0, *)
+    public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return ASPresentationAnchor()
     }
 }

@@ -44,6 +44,7 @@
 		D53A806F26278A5C0093B1CA /* WebAuthnRegistrationCallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53A806C26278A5C0093B1CA /* WebAuthnRegistrationCallbackTests.swift */; };
 		D53A807026278A5C0093B1CA /* WebAuthnAuthenticationCallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53A806D26278A5C0093B1CA /* WebAuthnAuthenticationCallbackTests.swift */; };
 		D53A807126278A5C0093B1CA /* WebAuthnCallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53A806E26278A5C0093B1CA /* WebAuthnCallbackTests.swift */; };
+		D551C7EB267088B8005A4C60 /* ASWebAuthn.swift in Sources */ = {isa = PBXBuildFile; fileRef = D551C7EA267088B8005A4C60 /* ASWebAuthn.swift */; };
 		D554630222A6DF720096C7A4 /* FRAuth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D55462F822A6DF720096C7A4 /* FRAuth.framework */; };
 		D554630922A6DF720096C7A4 /* FRAuth.h in Headers */ = {isa = PBXBuildFile; fileRef = D55462FB22A6DF720096C7A4 /* FRAuth.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D554632222A6EDF90096C7A4 /* FRAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D554632122A6EDF90096C7A4 /* FRAuth.swift */; };
@@ -388,6 +389,7 @@
 		D53A806C26278A5C0093B1CA /* WebAuthnRegistrationCallbackTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebAuthnRegistrationCallbackTests.swift; sourceTree = "<group>"; };
 		D53A806D26278A5C0093B1CA /* WebAuthnAuthenticationCallbackTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebAuthnAuthenticationCallbackTests.swift; sourceTree = "<group>"; };
 		D53A806E26278A5C0093B1CA /* WebAuthnCallbackTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebAuthnCallbackTests.swift; sourceTree = "<group>"; };
+		D551C7EA267088B8005A4C60 /* ASWebAuthn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASWebAuthn.swift; sourceTree = "<group>"; };
 		D55462F822A6DF720096C7A4 /* FRAuth.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FRAuth.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D55462FB22A6DF720096C7A4 /* FRAuth.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FRAuth.h; sourceTree = "<group>"; };
 		D55462FC22A6DF720096C7A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -1103,6 +1105,7 @@
 				D586CF6423358EE0007A2194 /* OIDC.swift */,
 				D586CF6523358EE0007A2194 /* Typealias.swift */,
 				D586CF6623358EE0007A2194 /* CallbackConstants.swift */,
+				D551C7EA267088B8005A4C60 /* ASWebAuthn.swift */,
 			);
 			path = Constants;
 			sourceTree = "<group>";
@@ -1303,10 +1306,10 @@
 			isa = PBXGroup;
 			children = (
 				D58864822630E93F00EAFE4E /* AuthTree_WebAuthnRegistrationNodeAM71.json */,
+				D5888C6125664EDF0041FD94 /* AuthTree_TermsAndConditionsNode.json */,
 				D58864802630E93F00EAFE4E /* AuthTree_WebAuthnRegistrationNodeAM71InvalidHiddenValueCallback.json */,
 				D5888C5F25664EDF0041FD94 /* AuthTree_DeviceCollectorNodeAll.json */,
 				D5888C6025664EDF0041FD94 /* AuthTree_SSOToken_Success2.json */,
-				D5888C6125664EDF0041FD94 /* AuthTree_TermsAndConditionsNode.json */,
 				D5888C6225664EDF0041FD94 /* AuthTree_SSOToken_Success.json */,
 				D5888C6325664EDF0041FD94 /* AuthTree_NoSession_Success.json */,
 				D5888C6425664EDF0041FD94 /* AM_Push_Authentication_Fail.json */,
@@ -1718,6 +1721,7 @@
 				D53A8042262789BD0093B1CA /* PlatformAuthenticator.swift in Sources */,
 				D586CF9A23358EE0007A2194 /* TextOutputCallback.swift in Sources */,
 				D53A804B262789BD0093B1CA /* ClientCreateOperation.swift in Sources */,
+				D551C7EB267088B8005A4C60 /* ASWebAuthn.swift in Sources */,
 				D55776B523702889005A911F /* MetadataCallback.swift in Sources */,
 				D5B2060725FFDDBA00DABB9B /* IdPHandler.swift in Sources */,
 				D5BE349523CD2F38005873BB /* FRSession.swift in Sources */,
